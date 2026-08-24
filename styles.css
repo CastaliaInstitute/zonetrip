@@ -34,6 +34,100 @@ body {
     var(--wash);
 }
 
+.review-workspace {
+  width: min(76rem, calc(100% - 2rem));
+  margin: 0 auto 5rem;
+}
+
+.review-console {
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.review-toolbar,
+.review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.review-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(18rem, 0.8fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.review-draft {
+  max-height: 36rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.review-facts div {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.review-facts dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.review-facts dd {
+  margin: 0.2rem 0 0;
+}
+
+.check-pass::marker {
+  color: var(--accent);
+}
+
+.check-fail,
+.check-fail::marker {
+  color: var(--danger);
+}
+
+.review-decision {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.review-decision label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 700;
+}
+
+.review-decision input,
+.review-decision textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: var(--surface);
+  font: inherit;
+}
+
+@media (max-width: 760px) {
+  .review-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .review-toolbar,
+  .review-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .image-listener-page {
   overflow: hidden;
   background: #150806;

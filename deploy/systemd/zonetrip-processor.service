@@ -17,6 +17,10 @@ Environment=ZONETRIP_WHISPER_DEVICE=auto
 Environment=ZONETRIP_WHISPER_COMPUTE_TYPE=auto
 Environment=ZONETRIP_MODEL_PATH=/var/lib/zonetrip/model.md
 Environment=ZONETRIP_DAY_NOTES_PATH=/var/lib/zonetrip/day-notes.jsonl
+Environment=ZONETRIP_EPISTEMIC_LEDGER_PATH=/var/lib/zonetrip/epistemic-day.jsonl
+Environment=ZONETRIP_REVIEW_PACKET_PATH=/var/lib/zonetrip/review-packet.json
+Environment=ZONETRIP_ATTESTATIONS_PATH=/var/lib/zonetrip/review-attestations.jsonl
+Environment=ZONETRIP_BURN_RECEIPT_PATH=/var/lib/zonetrip/burn-receipt.json
 Environment=ZONETRIP_CHARTER_PATH=/opt/zonetrip/charter.md
 Environment=ZONETRIP_PULL_MODELS=0
 EnvironmentFile=-/etc/default/zonetrip-processor

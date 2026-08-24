@@ -2,7 +2,7 @@
 
 Zone Trip is a browser-based listening interface backed by the working white paper:
 
-**Zone Trip: A Non-Directive Local AI Mirror for Community Self-Understanding**
+**Aru: A Local Epistemic Integrity Engine for Non-Directive Civic Reflection**
 
 The front page simulates the physical installation for review. The real booth is a microphone connected to one Linux box running capture, Whisper, Ollama, and the processor locally. Pages and local install use the same front end by default; local install only adds the localhost audio endpoint. The manifesto route presents the project's core question, constitutional limits, local-first architecture, deployment gates, and collaborator needs.
 
@@ -44,9 +44,10 @@ The local AI path uses Whisper plus Ollama on equivalent local hardware. Cloud R
 
 See `PROCESSOR.md`.
 
-The processor also supports daily batch mode: each request becomes
-charter-filtered segment notes, and `/finalize-day` writes one integrated
-`model.md` at the end of the day.
+The processor supports a two-phase daily batch mode. Each request becomes
+charter-filtered, typed epistemic objects with transformation warrants.
+`/finalize-day` proposes a review packet; `/review-day` requires a human
+decision before publication and the verified burn.
 
 ## Cloud Run Review Deployment
 
@@ -64,6 +65,7 @@ See `CLOUD_RUN.md`. This is intended for public static content review, not for p
 - `booth.html` - compatibility route for the simulator
 - `manifesto/` - project manifesto and deployment doctrine
 - `architecture/` - runtime architecture and processing-loop documentation
+- `review/` - steward review interface for warrants, checks, approval, and burn
 - `styles.css` - responsive visual system
 - `script.js` - content data and rendering
 - `scene.js` - Three.js rendered booth scene
@@ -79,10 +81,12 @@ See `CLOUD_RUN.md`. This is intended for public static content review, not for p
 - `assets/` - local responsive stage imagery
 - `vendor/three/` - vendored Three.js runtime module
 - `services/processor/` - FastAPI processor for Whisper and Ollama
+- `services/processor/epistemic.py` - typed objects, warrants, validation, review, and burn lifecycle
 - `docs/` - source white paper PDF
 - `bin/zonetrip-serve` - local static server
 - `bin/zonetrip-capture-once` - local microphone capture helper for the real booth
 - `bin/zonetrip-finalize-day` - local end-of-day model integration helper
+- `bin/zonetrip-review-day` - inspect or decide the pending steward review
 - `deploy/systemd/` - optional systemd unit
 - `scripts/` - standalone audit and Linux package scripts
 - `Dockerfile` - Cloud Run compatible container
@@ -107,10 +111,11 @@ python scripts/test-daily-batch-hypothesis.py
 
 ## Product Direction
 
-The next useful step is to turn this static site into a prototype workspace for:
+The current prototype now includes the first end-to-end epistemic lifecycle:
 
-- booth consent copy
-- local processing architecture notes
-- nightly burn protocol
-- steward review checklist
-- public reflection examples
+- bounded derived objects and source dependencies
+- transformation warrants and prohibited authority
+- deterministic public-output checks
+- human review before publication
+- signed review attestations
+- deletion verification and burn receipts

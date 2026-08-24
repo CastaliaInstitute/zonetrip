@@ -13,17 +13,22 @@ Local path:
 3. Processor runs Whisper through `faster-whisper`.
 4. Processor reads immutable `charter.md` and current durable `model.md`.
 5. Processor sends `charter.md`, `model.md`, and the temporary STT transcript to local Ollama.
-6. Ollama returns a complete replacement `model.md` plus simulator review fields.
-7. Processor atomically writes the new `model.md`.
-8. Temporary audio and transcript buffers die with the request.
+6. Ollama proposes typed derived objects; the processor attaches warrants,
+   uncertainty, prohibited claims, retention classes, and deterministic checks.
+7. `/finalize-day` creates a pending review packet without publishing it.
+8. A steward approves or rejects the packet through `/review-day`.
+9. Approval writes the bounded public reflection, signs an attestation, burns
+   the daily ledger and notes, and writes a deletion receipt.
+10. Temporary audio and transcript buffers die with each request.
 
 Daily batch mode changes steps 5-7:
 
 1. Each audio segment is converted into charter-filtered derived notes.
 2. The raw audio and STT transcript die with the request.
 3. The day notes are held in `ZONETRIP_DAY_NOTES_PATH`.
-4. `/finalize-day` integrates those notes once into a replacement `model.md`.
-5. The day-notes file is cleared after finalization.
+4. `/finalize-day` integrates those notes into a pending draft and review packet.
+5. Semantic review occurs while supporting derived material still exists.
+6. `/review-day` publishes only an approved draft, then clears burn-class state.
 
 Default local endpoints:
 
@@ -34,9 +39,11 @@ Development-only endpoint:
 
 - `POST http://127.0.0.1:8090/process-stt`
 
-Daily batch endpoint:
+Daily review endpoints:
 
 - `POST http://127.0.0.1:8090/finalize-day`
+- `GET http://127.0.0.1:8090/review-day`
+- `POST http://127.0.0.1:8090/review-day`
 
 `/process-stt` is disabled unless `ZONETRIP_ENABLE_DEV_STT=1` is set.
 
@@ -118,9 +125,11 @@ The segment notes are derived material, not raw transcript. End the day with:
 ```
 
 The processor then reads `charter.md`, current `model.md`, and the segment
-notes, writes one integrated replacement `model.md`, and clears the day-notes
-file. This matches the current simulation result: end-of-day reasoning produced
-a denser mirror than per-utterance updates without introducing charter failures.
+notes and creates a pending review packet. It does not publish or clear the
+supporting objects. Open `/review/` or query `GET /review-day`, inspect the
+draft, warrant, sources, and checks, then submit a decision. Approval publishes
+the reflection; either approval or rejection burns the notes, epistemic ledger,
+and review packet after writing an attestation and verified burn receipt.
 
 ## Cloud Run Simulator
 
@@ -157,6 +166,16 @@ curl -X POST http://127.0.0.1:8090/process-stt \
   -d '{"transcript":"I feel the community is changing, but I am not sure what we are losing."}'
 ```
 
+Finalize and approve a reviewed day:
+
+```sh
+curl -X POST http://127.0.0.1:8090/finalize-day
+curl http://127.0.0.1:8090/review-day
+curl -X POST http://127.0.0.1:8090/review-day \
+  -H 'Content-Type: application/json' \
+  -d '{"reviewer_role":"independent steward","decision":"approve","rationale":"Bounded, non-directive, and adequately supported."}'
+```
+
 ## Development Text Input
 
 The installed local simulator can enable a drawer text form for development:
@@ -171,6 +190,7 @@ That opt-in writes this local browser configuration:
 window.ZoneTripBoothConfig = {
   worldModelEndpoint: "http://127.0.0.1:8090/process-audio",
   textModelEndpoint: "http://127.0.0.1:8090/process-stt",
+  reviewEndpoint: "http://127.0.0.1:8090/review-day",
   devTextInput: true,
 };
 ```
@@ -207,8 +227,8 @@ python scripts/test-processor-contract.py
 ```
 
 The test covers audio content-type handling, model Markdown normalization, raw
-transcript scrubbing, subgroup-term scrubbing, and timestamp-free fallback
-generation.
+transcript scrubbing, subgroup-term scrubbing, deterministic constitutional
+validation, human review gating, publication, and verified burn behavior.
 
 ## Community Simulation
 

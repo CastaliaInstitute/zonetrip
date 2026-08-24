@@ -19,7 +19,7 @@ if ! id "$SERVICE_USER" >/dev/null 2>&1; then
 fi
 
 mkdir -p "$PREFIX"
-cp -R index.html booth.html styles.css script.js scene.js booth.js booth-config.js favicon.svg CNAME charter.md model.md docs bin manifesto architecture assets vendor services deploy scripts .nojekyll "$PREFIX"/
+cp -R index.html booth.html styles.css script.js scene.js booth.js booth-config.js favicon.svg CNAME charter.md model.md docs bin manifesto architecture review assets vendor services deploy scripts .nojekyll "$PREFIX"/
 chown -R "$SERVICE_USER:$SERVICE_USER" "$PREFIX"
 chmod 0755 "$PREFIX/bin/zonetrip-serve"
 

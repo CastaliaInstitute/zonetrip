@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+set -eu
+
+ENDPOINT="${ZONETRIP_REVIEW_ENDPOINT:-http://127.0.0.1:8090/review-day}"
+DECISION="${1:-}"
+ROLE="${ZONETRIP_REVIEWER_ROLE:-independent steward}"
+RATIONALE="${ZONETRIP_REVIEW_RATIONALE:-}"
+
+if [ -z "$DECISION" ]; then
+  curl -fsS "$ENDPOINT"
+  exit 0
+fi
+
+if [ "$DECISION" != "approve" ] && [ "$DECISION" != "reject" ]; then
+  echo "usage: zonetrip-review-day [approve|reject]" >&2
+  exit 2
+fi
+
+if [ -z "$RATIONALE" ]; then
+  echo "ZONETRIP_REVIEW_RATIONALE is required for a decision" >&2
+  exit 2
+fi
+
+payload=$(REVIEW_ROLE="$ROLE" REVIEW_DECISION="$DECISION" REVIEW_RATIONALE="$RATIONALE" \
+  python3 -c 'import json, os; print(json.dumps({"reviewer_role": os.environ["REVIEW_ROLE"], "decision": os.environ["REVIEW_DECISION"], "rationale": os.environ["REVIEW_RATIONALE"]}))')
+
+curl -fsS \
+  -X POST \
+  -H 'Content-Type: application/json' \
+  --data "$payload" \
+  "$ENDPOINT"

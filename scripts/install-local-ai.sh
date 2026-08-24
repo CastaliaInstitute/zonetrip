@@ -52,6 +52,7 @@ cat > "$PREFIX/booth-config.js" <<EOF
 window.ZoneTripBoothConfig = {
   worldModelEndpoint: "http://127.0.0.1:8090/process-audio",
   textModelEndpoint: "$TEXT_MODEL_ENDPOINT",
+  reviewEndpoint: "http://127.0.0.1:8090/review-day",
   devTextInput: $DEV_TEXT_INPUT_JS,
   idlePowerdownMs: 60000,
   vadRmsThreshold: 0.018,
