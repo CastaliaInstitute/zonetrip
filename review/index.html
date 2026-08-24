@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aru Steward Review</title>
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="../">Zone Trip / Aru</a>
+      <nav aria-label="Primary navigation">
+        <a href="../">Booth</a>
+        <a href="../architecture/">Architecture</a>
+      </nav>
+    </header>
+
+    <main class="review-workspace">
+      <section class="architecture-page-hero">
+        <p class="eyebrow">Human semantic checkpoint</p>
+        <h1>Steward review happens before the burn.</h1>
+        <p class="lede">
+          Aru may propose a bounded public reflection. It cannot approve its own
+          interpretation. Review the draft, its constitutional checks, and its
+          epistemic warrant before approving publication or rejecting the day.
+        </p>
+      </section>
+
+      <section class="review-console" aria-live="polite">
+        <div class="review-toolbar">
+          <div>
+            <p class="card-kicker">Processor state</p>
+            <strong id="review-status">No review packet loaded</strong>
+          </div>
+          <button id="load-review" class="button" type="button">Load pending review</button>
+        </div>
+
+        <div id="review-content" hidden>
+          <div class="review-columns">
+            <article class="info-card">
+              <p class="card-kicker">Draft public reflection</p>
+              <pre id="review-draft" class="review-draft"></pre>
+            </article>
+            <article class="info-card">
+              <p class="card-kicker">Transformation warrant</p>
+              <dl class="review-facts">
+                <div><dt>Transition</dt><dd id="review-transition"></dd></div>
+                <div><dt>Supporting objects</dt><dd id="review-sources"></dd></div>
+                <div><dt>Uncertainty preserved</dt><dd id="review-uncertainty"></dd></div>
+              </dl>
+              <h2>Constitutional checks</h2>
+              <ul id="review-checks" class="check-list"></ul>
+            </article>
+          </div>
+
+          <form id="review-form" class="review-decision">
+            <label>
+              Reviewer role
+              <input id="reviewer-role" required value="independent steward" />
+            </label>
+            <label>
+              Rationale
+              <textarea id="review-rationale" required rows="4"></textarea>
+            </label>
+            <div class="review-actions">
+              <button class="button danger-button" type="submit" value="reject">Reject and burn</button>
+              <button class="button button-primary" type="submit" value="approve">Approve, publish, and burn</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <script src="../booth-config.js"></script>
+    <script src="review.js"></script>
+  </body>
+</html>

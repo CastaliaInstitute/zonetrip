@@ -4,10 +4,29 @@ import re
 import tempfile
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import requests
 from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+from epistemic import (
+  BurnReceipt,
+  EpistemicObject,
+  ReviewAttestation,
+  ReviewDecision,
+  ReviewPacket,
+  append_event,
+  atomic_write_json,
+  build_review_packet,
+  burn_files,
+  checks_pass,
+  make_derived_object,
+  make_warrant,
+  read_events,
+  sha256_text,
+)
 
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
@@ -19,6 +38,26 @@ DAILY_BATCH_MODE = os.getenv("ZONETRIP_DAILY_BATCH_MODE", "0") == "1"
 LOAD_MODELS_ON_STARTUP = os.getenv("ZONETRIP_PRELOAD_MODELS", "0") == "1"
 MODEL_PATH = Path(os.getenv("ZONETRIP_MODEL_PATH", "model.md"))
 DAY_NOTES_PATH = Path(os.getenv("ZONETRIP_DAY_NOTES_PATH", str(MODEL_PATH.parent / "day-notes.jsonl")))
+EPISTEMIC_LEDGER_PATH = Path(
+  os.getenv("ZONETRIP_EPISTEMIC_LEDGER_PATH", str(MODEL_PATH.parent / "epistemic-day.jsonl"))
+)
+REVIEW_PACKET_PATH = Path(
+  os.getenv("ZONETRIP_REVIEW_PACKET_PATH", str(MODEL_PATH.parent / "review-packet.json"))
+)
+ATTESTATIONS_PATH = Path(
+  os.getenv("ZONETRIP_ATTESTATIONS_PATH", str(MODEL_PATH.parent / "review-attestations.jsonl"))
+)
+BURN_RECEIPT_PATH = Path(
+  os.getenv("ZONETRIP_BURN_RECEIPT_PATH", str(MODEL_PATH.parent / "burn-receipt.json"))
+)
+REVIEW_ORIGINS = [
+  origin.strip()
+  for origin in os.getenv(
+    "ZONETRIP_REVIEW_ORIGINS",
+    "http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:5173,http://localhost:5173",
+  ).split(",")
+  if origin.strip()
+]
 CHARTER_PATH = Path(os.getenv("ZONETRIP_CHARTER_PATH", "charter.md"))
 MODEL_MARKDOWN_LIMIT = int(os.getenv("ZONETRIP_MODEL_MARKDOWN_LIMIT", "16000"))
 CHARTER_MARKDOWN_LIMIT = int(os.getenv("ZONETRIP_CHARTER_MARKDOWN_LIMIT", "12000"))
@@ -64,7 +103,17 @@ class SegmentNotes(BaseModel):
 
 class FinalizeDayResponse(DerivedSignals):
   segment_count: int
-  day_notes_cleared: bool
+  day_notes_cleared: bool = False
+  review_status: str
+  review_packet_id: str
+  constitutional_checks_passed: bool
+
+
+class ReviewDayResponse(BaseModel):
+  review_status: str
+  public_reflection_published: bool
+  attestation: ReviewAttestation
+  burn_receipt: BurnReceipt
 
 
 def require_token(token: str | None) -> None:
@@ -232,6 +281,65 @@ def clear_day_notes() -> None:
     DAY_NOTES_PATH.unlink()
   except FileNotFoundError:
     pass
+
+
+def deployment_id_or_default(value: str | None) -> str:
+  return value or os.getenv("ZONETRIP_DEPLOYMENT_ID", "local-prototype")
+
+
+def record_segment_notes(notes: SegmentNotes, deployment_id: str) -> list[EpistemicObject]:
+  """Persist bounded, burn-class derived objects and warrants for steward review."""
+  session_source = f"session_{uuid4().hex}"
+  objects: list[EpistemicObject] = []
+  note_groups = [
+    ("tension", notes.tensions),
+    ("contradiction", notes.contradictions),
+    ("absence", notes.absences),
+    ("symbolic_pattern", notes.symbolic_patterns),
+    ("minority_signal", notes.minority_signals),
+    ("open_question", notes.open_questions),
+    ("rejected_boundary_material", notes.rejected_content),
+  ]
+  for kind, values in note_groups:
+    for value in values:
+      obj = make_derived_object(
+        deployment_id=deployment_id,
+        kind=kind,
+        content=value,
+        source_ids=[session_source],
+        created_by="charter-filtered-segment-note",
+      )
+      warrant = make_warrant(
+        deployment_id=deployment_id,
+        source_ids=[session_source],
+        output=obj,
+        transition="temporary_utterance_to_derived_candidate",
+      )
+      append_event(EPISTEMIC_LEDGER_PATH, {"event": "object_created", "object": obj.model_dump(mode="json")})
+      append_event(EPISTEMIC_LEDGER_PATH, {"event": "warrant_created", "warrant": warrant.model_dump(mode="json")})
+      objects.append(obj)
+  return objects
+
+
+def supporting_object_ids() -> list[str]:
+  ids: list[str] = []
+  for event in read_events(EPISTEMIC_LEDGER_PATH):
+    if event.get("event") == "object_created":
+      object_id = event.get("object", {}).get("id")
+      if object_id:
+        ids.append(str(object_id))
+  return ids
+
+
+def read_review_packet() -> ReviewPacket:
+  try:
+    return ReviewPacket.model_validate_json(REVIEW_PACKET_PATH.read_text(encoding="utf-8"))
+  except FileNotFoundError as error:
+    raise HTTPException(status_code=404, detail="no pending review packet") from error
+
+
+def review_packet_passes(packet: ReviewPacket) -> bool:
+  return checks_pass(packet.checks) and checks_pass(packet.warrant.validator_results)
 
 
 def constitution_prompt(charter: str, current_model: str, transcript: str) -> str:
@@ -613,7 +721,7 @@ def notes_to_markdown(notes: list[SegmentNotes]) -> str:
   return text[:DAY_NOTES_MARKDOWN_LIMIT]
 
 
-def daily_batch_generate(notes: list[SegmentNotes]) -> DerivedSignals:
+def daily_batch_generate(notes: list[SegmentNotes], persist: bool = True) -> DerivedSignals:
   if not notes:
     raise HTTPException(status_code=422, detail="no day notes to finalize")
 
@@ -625,11 +733,19 @@ def daily_batch_generate(notes: list[SegmentNotes]) -> DerivedSignals:
     num_predict=900,
   )
   result = normalize_result("", payload)
-  write_model_markdown(result.model_markdown)
+  if persist:
+    write_model_markdown(result.model_markdown)
   return result
 
 
 app = FastAPI(title="Zone Trip Local Processor")
+app.add_middleware(
+  CORSMiddleware,
+  allow_origins=REVIEW_ORIGINS,
+  allow_credentials=False,
+  allow_methods=["GET", "POST"],
+  allow_headers=["Content-Type", "X-ZoneTrip-Token"],
+)
 
 
 @app.on_event("startup")
@@ -649,6 +765,8 @@ def health() -> dict[str, str]:
     "dev_stt": "enabled" if ENABLE_DEV_STT else "disabled",
     "daily_batch_mode": "enabled" if DAILY_BATCH_MODE else "disabled",
     "day_notes_path": str(DAY_NOTES_PATH),
+    "epistemic_ledger_path": str(EPISTEMIC_LEDGER_PATH),
+    "review_packet_path": str(REVIEW_PACKET_PATH),
   }
 
 
@@ -663,6 +781,7 @@ def process_stt(
   if DAILY_BATCH_MODE:
     notes = ollama_segment_notes(request.transcript)
     append_day_notes(notes)
+    record_segment_notes(notes, deployment_id_or_default(request.deployment_id))
     return DerivedSignals(
       **notes.model_dump(),
       model_markdown=read_model_markdown(),
@@ -676,12 +795,78 @@ def finalize_day(
 ) -> FinalizeDayResponse:
   require_token(x_zonetrip_token)
   notes = read_day_notes()
-  result = daily_batch_generate(notes)
-  clear_day_notes()
+  result = daily_batch_generate(notes, persist=False)
+  deployment_id = deployment_id_or_default(None)
+  packet = build_review_packet(
+    deployment_id=deployment_id,
+    model_markdown=result.model_markdown,
+    supporting_object_ids=supporting_object_ids(),
+  )
+  atomic_write_json(REVIEW_PACKET_PATH, packet)
   return FinalizeDayResponse(
     **result.model_dump(),
     segment_count=len(notes),
-    day_notes_cleared=True,
+    day_notes_cleared=False,
+    review_status=packet.status,
+    review_packet_id=packet.id,
+    constitutional_checks_passed=review_packet_passes(packet),
+  )
+
+
+@app.get("/review-day", response_model=ReviewPacket)
+def get_review_day(
+  x_zonetrip_token: str | None = Header(default=None),
+) -> ReviewPacket:
+  require_token(x_zonetrip_token)
+  return read_review_packet()
+
+
+@app.post("/review-day", response_model=ReviewDayResponse)
+def review_day(
+  decision: ReviewDecision,
+  x_zonetrip_token: str | None = Header(default=None),
+) -> ReviewDayResponse:
+  require_token(x_zonetrip_token)
+  packet = read_review_packet()
+  normalized_decision = decision.decision.strip().lower()
+  if normalized_decision not in {"approve", "reject"}:
+    raise HTTPException(status_code=422, detail="decision must be approve or reject")
+  all_checks = packet.checks + packet.warrant.validator_results
+  if normalized_decision == "approve" and not review_packet_passes(packet):
+    failed = [check.rule_id for check in all_checks if not check.passed]
+    raise HTTPException(
+      status_code=409,
+      detail=f"constitutional checks failed: {', '.join(failed)}",
+    )
+
+  published = normalized_decision == "approve"
+  if published:
+    write_model_markdown(packet.draft.content)
+
+  attestation = ReviewAttestation(
+    review_packet_id=packet.id,
+    deployment_id=packet.deployment_id,
+    reviewer_role=decision.reviewer_role,
+    decision=normalized_decision,
+    rationale=decision.rationale,
+    draft_sha256=sha256_text(packet.draft.content),
+    checks_passed=review_packet_passes(packet),
+  )
+  append_event(ATTESTATIONS_PATH, attestation)
+  receipt = burn_files(
+    deployment_id=packet.deployment_id,
+    burn_paths=[DAY_NOTES_PATH, EPISTEMIC_LEDGER_PATH, REVIEW_PACKET_PATH],
+    retained_paths=[MODEL_PATH, ATTESTATIONS_PATH, BURN_RECEIPT_PATH],
+  )
+  atomic_write_json(BURN_RECEIPT_PATH, receipt)
+  if not receipt.deletion_verified:
+    raise HTTPException(status_code=500, detail="burn verification failed")
+
+  return ReviewDayResponse(
+    review_status="approved" if published else "rejected",
+    public_reflection_published=published,
+    attestation=attestation,
+    burn_receipt=receipt,
   )
 
 
@@ -709,6 +894,7 @@ async def process_audio(
   if DAILY_BATCH_MODE:
     notes = ollama_segment_notes(transcript)
     append_day_notes(notes)
+    record_segment_notes(notes, deployment_id_or_default(None))
     return AudioProcessResponse(
       **DerivedSignals(
         **notes.model_dump(),

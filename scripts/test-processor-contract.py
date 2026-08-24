@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "services" / "processor"))
 
 import app  # noqa: E402
+import epistemic  # noqa: E402
 
 
 def assert_no_hits(haystack: str, needles: list[str]) -> None:
@@ -164,6 +165,106 @@ def test_fallback_model_has_no_metadata() -> None:
     raise AssertionError("fallback model is missing title")
 
 
+def test_public_reflection_validator() -> None:
+  unsafe = epistemic.validate_public_reflection(
+    "The community wants change and organizers should publish an action plan."
+  )
+  failed = {check.rule_id for check in unsafe if not check.passed}
+  if not {"ARU-PUBLIC-001", "ARU-PUBLIC-002", "ARU-PUBLIC-005"}.issubset(failed):
+    raise AssertionError(f"expected constitutional failures, got {sorted(failed)}")
+
+  safe = epistemic.validate_public_reflection(
+    "A tension appears around continuity and change.\n\n"
+    "Reflective, not representative. Interpretive, not directive. Not a mandate."
+  )
+  if not epistemic.checks_pass(safe):
+    raise AssertionError(f"safe reflection failed checks: {safe}")
+
+  unsupported = epistemic.build_review_packet(
+    deployment_id="test",
+    model_markdown="A bounded reflection.",
+    supporting_object_ids=[],
+  )
+  if app.review_packet_passes(unsupported):
+    raise AssertionError("an unsupported draft must not pass review")
+
+
+def test_review_then_burn_lifecycle() -> None:
+  path_names = [
+    "MODEL_PATH",
+    "DAY_NOTES_PATH",
+    "EPISTEMIC_LEDGER_PATH",
+    "REVIEW_PACKET_PATH",
+    "ATTESTATIONS_PATH",
+    "BURN_RECEIPT_PATH",
+  ]
+  original_paths = {name: getattr(app, name) for name in path_names}
+  original_generate = app.daily_batch_generate
+  with tempfile.TemporaryDirectory(prefix="aru-review-lifecycle-") as temp_dir:
+    root = Path(temp_dir)
+    for name in path_names:
+      setattr(app, name, root / f"{name.lower()}.json")
+
+    notes = app.SegmentNotes(
+      transcript_chars=42,
+      tensions=["Continuity and change remain in unresolved relation."],
+      contradictions=[],
+      absences=[],
+      symbolic_patterns=[],
+      minority_signals=[],
+      open_questions=["What forms of belonging remain imaginable?"],
+      rejected_content=[],
+    )
+    app.append_day_notes(notes)
+    app.record_segment_notes(notes, "test-deployment")
+
+    safe_result = app.DerivedSignals(
+      transcript_chars=0,
+      tensions=notes.tensions,
+      contradictions=[],
+      absences=[],
+      symbolic_patterns=[],
+      minority_signals=[],
+      open_questions=notes.open_questions,
+      rejected_content=[],
+      raw_transcript_retained=False,
+      model_markdown=(
+        "# Zone Trip World Model\n\n"
+        "## Tensions\n\n- Continuity and change remain in unresolved relation."
+      ),
+    )
+    app.daily_batch_generate = lambda day_notes, persist=False: safe_result
+    try:
+      packet = app.finalize_day(None)
+      if packet.review_status != "pending" or packet.day_notes_cleared:
+        raise AssertionError("finalization must pause for semantic review before burn")
+      if not app.REVIEW_PACKET_PATH.exists() or not app.DAY_NOTES_PATH.exists():
+        raise AssertionError("review material disappeared before review")
+
+      reviewed = app.review_day(
+        epistemic.ReviewDecision(
+          reviewer_role="independent steward",
+          decision="approve",
+          rationale="The reflection remains bounded and non-directive.",
+        ),
+        None,
+      )
+      if not reviewed.public_reflection_published:
+        raise AssertionError("approved reflection was not published")
+      if not reviewed.burn_receipt.deletion_verified:
+        raise AssertionError("burn was not verified")
+      for path in [app.DAY_NOTES_PATH, app.EPISTEMIC_LEDGER_PATH, app.REVIEW_PACKET_PATH]:
+        if path.exists():
+          raise AssertionError(f"burn-class artifact survived: {path}")
+      for path in [app.MODEL_PATH, app.ATTESTATIONS_PATH, app.BURN_RECEIPT_PATH]:
+        if not path.exists():
+          raise AssertionError(f"durable artifact missing: {path}")
+    finally:
+      app.daily_batch_generate = original_generate
+      for name, value in original_paths.items():
+        setattr(app, name, value)
+
+
 def main() -> None:
   test_audio_suffixes()
   test_model_markdown_sanitization()
@@ -172,6 +273,8 @@ def main() -> None:
   test_day_notes_round_trip()
   test_segment_notes_sanitization()
   test_fallback_model_has_no_metadata()
+  test_public_reflection_validator()
+  test_review_then_burn_lifecycle()
   print("processor-contract-tests-ok")
 
 

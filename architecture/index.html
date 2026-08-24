@@ -20,13 +20,14 @@
     <main id="top">
       <section class="architecture-page-hero" aria-labelledby="architecture-title">
         <p class="eyebrow">System architecture</p>
-        <h1 id="architecture-title">One microphone, one local model boundary, one derived world model.</h1>
+        <h1 id="architecture-title">A governed path from utterance to public reflection.</h1>
         <p class="lede">
           Zone Trip separates the real booth from the browser simulation. The
           real installation is a microphone connected to one Linux box. The
-          public Pages front end is a review surface that simulates the booth,
-          world-model drawer, silence timeout, and optional development text
-          input.
+          public Pages front end simulates the booth. Aru treats every derived
+          signal as a typed epistemic object, requires a transformation warrant,
+          pauses for steward review, and burns reconstructive daily material
+          only after that semantic review is complete.
         </p>
       </section>
 
@@ -77,7 +78,7 @@
       <section class="architecture" aria-labelledby="loop-title">
         <div class="section-intro">
           <p class="eyebrow">Processing loop</p>
-          <h2 id="loop-title">STT feeds the model, but transcript does not survive.</h2>
+          <h2 id="loop-title">Models propose transformations; the pipeline governs them.</h2>
         </div>
 
         <ol class="timeline architecture-timeline">
@@ -90,20 +91,20 @@
             <p>Whisper receives temporary audio and returns request-local STT.</p>
           </li>
           <li>
-            <h3>Constrain</h3>
-            <p>The processor reads immutable <code>charter.md</code> and current <code>model.md</code>.</p>
+            <h3>Redact and constrain</h3>
+            <p>The processor reads immutable <code>charter.md</code>, removes reconstructive detail, and rejects prohibited use.</p>
           </li>
           <li>
-            <h3>Derive notes</h3>
-            <p>The LLM converts the segment into charter-filtered notes. Raw STT is not written.</p>
+            <h3>Create typed objects</h3>
+            <p>Derived candidates carry object type, source dependency, uncertainty, prohibited claims, and retention class.</p>
           </li>
           <li>
-            <h3>Finalize day</h3>
-            <p><code>/finalize-day</code> integrates the day notes into one replacement <code>model.md</code>.</p>
+            <h3>Issue warrants</h3>
+            <p>Every derived object receives a transformation warrant and deterministic constitutional checks.</p>
           </li>
           <li>
-            <h3>Discard</h3>
-            <p>Temporary audio and transcript buffers die with the request; day notes are cleared after finalization.</p>
+            <h3>Review, publish, and burn</h3>
+            <p>A steward reviews the daily draft. Approval publishes it, signs an attestation, burns temporary artifacts, and verifies deletion.</p>
           </li>
         </ol>
       </section>
@@ -145,11 +146,11 @@
 
           <article class="info-card">
             <p class="card-kicker">After finalization</p>
-            <h3>Notes cleared</h3>
+            <h3>Reviewed burn</h3>
             <p>
-              Segment notes are an intermediate processing artifact. They are
-              cleared after <code>/finalize-day</code>; only
-              <code>model.md</code> remains as durable state.
+              Segment notes and the epistemic ledger remain available through
+              semantic review. They are cleared only after <code>/review-day</code>;
+              the public reflection, attestation, and burn receipt survive.
             </p>
           </article>
         </div>
@@ -158,7 +159,7 @@
       <section class="section-grid" aria-labelledby="state-title">
         <div class="section-intro">
           <p class="eyebrow">Durable state</p>
-          <h2 id="state-title">Only <code>model.md</code> survives.</h2>
+          <h2 id="state-title">Only the public artifact and process attestations survive.</h2>
           <p>
             The model file is not source material. It should contain abstracted
             tensions, contradictions, absences, symbolic patterns, minority
@@ -174,6 +175,8 @@
               <li>Uncertainty and contradiction</li>
               <li>Absences and minority signals</li>
               <li>Rejected boundary categories</li>
+              <li>Review attestation and draft hash</li>
+              <li>Verified burn receipt</li>
             </ul>
           </div>
           <div>
@@ -272,6 +275,19 @@
 - Whether common symbols still gather people together or mainly preserve disagreement remains unsettled.</code></pre>
             </div>
           </article>
+        </div>
+      </section>
+
+      <section class="architecture-map" aria-labelledby="review-title">
+        <div class="section-intro">
+          <p class="eyebrow">Steward checkpoint</p>
+          <h2 id="review-title">Semantic audit happens while comparison remains possible.</h2>
+          <p>
+            After the burn, Aru can prove which process and policy versions ran,
+            but it cannot honestly promise retrospective semantic reconstruction.
+            The <a href="../review/">steward workspace</a> therefore presents the
+            draft and its temporary support graph before deletion.
+          </p>
         </div>
       </section>
     </main>
